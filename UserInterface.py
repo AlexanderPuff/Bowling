@@ -46,16 +46,22 @@ class bowling_screen:
 
     def to_screen(self):
         '''
-        Update what the user sees.
+        Prints all relevant info after resetting the terminal.
         '''
         _clear_terminal()
+
         self.console.print(Rule("Bowling Scorer 3000"))
+
         table = self.create_score_table()
         self.console.print(Columns(table), justify="center")
+
         self.console.print(Rule())
+
         md = "Enter U to undo, R to reset, Q to quit."
         self.console.print(Panel(Markdown(md,justify="center")))
+
         self.console.print(Rule())
+
         if self.message:
             self.console.print(self.message, justify="center")
             self.message = None
@@ -64,15 +70,12 @@ class bowling_screen:
         '''
         Insert newlines between all our symbols and numbers.
         '''
-        # these might be ints
+        # there might be ints in here
         str_symbols = [str(s) for s in symbols]
         str_score = str(score)
+        str_score += " " * (3-len(str_score)) # insert padding for better alignment
 
-        # insert an extra empty line for the first 9 frames
-        if len(symbols) == 2:
-            lines = str_symbols + ["   "] + [str_score]
-        else:
-            lines = str_symbols + [str_score]
+        lines = str_symbols + [str_score]
 
         return "\n".join(lines)
     
@@ -81,9 +84,9 @@ class bowling_screen:
         '''
         Put all game info in one table.
         '''
-        frame_symbols = [frame.to_symbols() for frame in self.cur_game.frames[:9]]
+        frame_symbols = [frame.to_symbols() for frame in self.cur_game.frames[:NR_THROWS-1]]
         # finale needs special care
-        if len(self.cur_game.frames) == 10:
+        if len(self.cur_game.frames) == NR_THROWS:
             frame_symbols.append(self.cur_game.frames[-1].to_symbols(is_last=True))
 
         # append partially completed frame
@@ -93,18 +96,23 @@ class bowling_screen:
         scores = self.cur_game.prefix_scores()
 
         # fill up so there are always 10 frames, taking special care of the longer last one
-        frame_symbols += [["-", "-"]] * (9 - len(frame_symbols))
-        if len(frame_symbols) < 10:
+        frame_symbols += [["-", "-", ""]] * (NR_THROWS - 1 - len(frame_symbols))
+        if len(frame_symbols) < NR_THROWS:
             frame_symbols.append(["-", "-", "-"])
-        
-        elif len(frame_symbols) == 10:
-            frame_symbols[9] += ["-"] * (3 - len(frame_symbols[9]))
 
-        scores += ["---"]*(10-len(scores))
+        scores += ["---"]*(NR_THROWS-len(scores))
 
         cols = []
-        for i in range(10):
-            cols.append(Panel(self.stringify(frame_symbols[i], scores[i])))
+        cur_frame_number = len(self.cur_game.frames)
+        if cur_frame_number == NR_THROWS and not self.cur_game.done:
+            cur_frame_number -= 1
+        
+        for i in range(NR_THROWS):
+            # color the current frame's border red
+            if i == cur_frame_number: color = "red"
+            else: color = "white"
+            
+            cols.append(Panel(self.stringify(frame_symbols[i], scores[i]), border_style=color))
         
         return cols
 
@@ -135,6 +143,9 @@ class bowling_screen:
 
     
     def int_input(self, input):
+        '''
+        Read user input, convert it into an integer, and update the game. Display an error message if input was invalid.
+        '''
         try:
             pins_knocked = int(input)
             try:
@@ -146,4 +157,4 @@ class bowling_screen:
             except ValueError as e:
                     self.message = "Error: " + str(e)
         except ValueError:
-            self.message = "Error: Please enter a number between 0 and 10."
+            self.message = f"Error: Please enter a number between 0 and {NR_PINS}."
